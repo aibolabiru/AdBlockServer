@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdBlock Server Admin</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        input, button {
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        button.delete {
+            background: #f44336;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>AdBlock Server Admin</h1>
+    
+    <div class="card">
+        <h2>Add Device</h2>
+        <div>
+            <input type="text" id="deviceName" placeholder="Device Name">
+            <input type="text" id="deviceIp" placeholder="IP Address">
+            <button onclick="addDevice()">Add Device</button>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h2>Allowed Devices</h2>
+        <table id="devicesTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>IP Address</th>
+                    <th>Added</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    
+    <div class="card">
+        <h2>Blocked Domains</h2>
+        <div>
+            <input type="text" id="domainInput" placeholder="Domain to block">
+            <button onclick="addToBlocklist()">Block Domain</button>
+        </div>
+        <ul id="blocklist"></ul>
+    </div>
+
+    <script>
+        // Load devices and blocklist on page load
+        document.addEventListener('DOMContentLoaded', loadData);
+        
+        async function loadData() {
+            await loadDevices();
+            await loadBlocklist();
+        }
+        
+        async function loadDevices() {
+            const response = await fetch('/api/devices');
+            const devices = await response.json();
+            const tbody = document.querySelector('#devicesTable tbody');
+            tbody.innerHTML = '';
+            
+            devices.forEach(device => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = device.name;
+                row.insertCell(1).textContent = device.ip;
+                row.insertCell(2).textContent = new Date(device.added).toLocaleDateString();
+                
+                const actionCell = row.insertCell(3);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'delete';
+                deleteBtn.onclick = () => deleteDevice(device.ip);
+                actionCell.appendChild(deleteBtn);
+            });
+        }
+        
+        async function loadBlocklist() {
+            const response = await fetch('/api/blocklist');
+            const blocklist = await response.json();
+            const list = document.getElementById('blocklist');
+            list.innerHTML = '';
+            
+            blocklist.forEach(domain => {
+                const li = document.createElement('li');
+                li.textContent = domain;
+                list.appendChild(li);
+            });
+        }
+        
+        async function addDevice() {
+            const name = document.getElementById('deviceName').value;
+            const ip = document.getElementById('deviceIp').value;
+            
+            if (!name || !ip) {
+                alert('Please enter both name and IP address');
+                return;
+            }
+            
+            await fetch('/api/devices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, ip })
+            });
+            
+            document.getElementById('deviceName').value = '';
+            document.getElementById('deviceIp').value = '';
+            await loadDevices();
+        }
+        
+        async function deleteDevice(ip) {
+            await fetch(`/api/devices/${ip}`, { method: 'DELETE' });
+            await loadDevices();
+        }
+        
+        async function addToBlocklist() {
+            const domain = document.getElementById('domainInput').value;
+            
+            if (!domain) {
+                alert('Please enter a domain');
+                return;
+            }
+            
+            await fetch('/api/blocklist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domain })
+            });
+            
+            document.getElementById('domainInput').value = '';
+            await loadBlocklist();
+        }
+    </script>
+</body>
+</html>
